@@ -8,7 +8,6 @@ public class BonusBackendApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(BonusBackendApplication.class, args);
-
 	}
 
 }
