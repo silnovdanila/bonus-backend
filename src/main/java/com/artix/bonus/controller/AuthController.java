@@ -73,4 +73,16 @@ public class AuthController {
             return ResponseEntity.status(400).body("Ошибка: " + e.getMessage());
         }
     }
+    @PostMapping("/password/reset")
+    public ResponseEntity<?> resetPassword(@RequestBody PasswordResetRequest request) {
+        try {
+            User user = userService.findByEmail(request.getEmail());
+            String resetCode = String.format("%06d", new java.util.Random().nextInt(999999));
+            return ResponseEntity.ok("Ссылка для восстановления пароля отправлена на " + request.getEmail() +
+                    " (код: " + resetCode + ")");
+
+        } catch (RuntimeException e) {
+            return ResponseEntity.ok("Если пользователь с таким email существует, ссылка для восстановления отправлена");
+        }
+    }
 }

@@ -1,6 +1,7 @@
 package com.artix.bonus.service;
 
 import com.artix.bonus.dto.LoginRequest;
+import com.artix.bonus.dto.ProfileUpdateRequest;
 import com.artix.bonus.dto.RegisterRequest;
 import com.artix.bonus.model.User;
 import com.artix.bonus.repository.UserRepository;
@@ -48,5 +49,26 @@ public class UserService {
     public User findByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+    }
+
+    public User findById(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+    }
+
+    public User updateProfile(Long userId, ProfileUpdateRequest request) {
+        User user = findById(userId);
+
+        if (request.getFullName() != null && !request.getFullName().isEmpty()) {
+            user.setFullName(request.getFullName());
+        }
+        if (request.getPhone() != null && !request.getPhone().isEmpty()) {
+            user.setPhone(request.getPhone());
+        }
+        if (request.getBirthDate() != null && !request.getBirthDate().isEmpty()) {
+            user.setBirthDate(request.getBirthDate());
+        }
+
+        return userRepository.save(user);
     }
 }
