@@ -1,11 +1,11 @@
 package com.artix.bonus.controller;
 
-import com.artix.bonus.config.JwtUtils;
-import com.artix.bonus.dto.AuthResponse;
-import com.artix.bonus.dto.LoginRequest;
-import com.artix.bonus.dto.RegisterRequest;
+import com.artix.bonus.dto.*;
+import com.artix.bonus.model.RefreshToken;
 import com.artix.bonus.model.User;
+import com.artix.bonus.service.RefreshTokenService;
 import com.artix.bonus.service.UserService;
+import com.artix.bonus.config.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -14,37 +14,63 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
 public class AuthController {
+
     private final UserService userService;
+    private final RefreshTokenService refreshTokenService;
     private final JwtUtils jwtUtils;
 
     @PostMapping("/register")
-    public AuthResponse register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<AuthResponseWithTokens> register(@RequestBody RegisterRequest request) {
         User user = userService.register(request);
-        String token = jwtUtils.generateToken(user.getEmail());
-        return new AuthResponse(token, user.getEmail(), user.getFullName());
+
+        String accessToken = jwtUtils.generateAccessToken(user.getEmail());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+        return ResponseEntity.ok(new AuthResponseWithTokens(
+                accessToken,
+                refreshToken.getToken(),
+                user.getEmail(),
+                user.getFullName()
+        ));
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest request) {
+    public ResponseEntity<AuthResponseWithTokens> login(@RequestBody LoginRequest request) {
         User user = userService.login(request);
-        String token = jwtUtils.generateToken(user.getEmail());
-        return new AuthResponse(token, user.getEmail(), user.getFullName());
+
+        String accessToken = jwtUtils.generateAccessToken(user.getEmail());
+        RefreshToken refreshToken = refreshTokenService.createRefreshToken(user);
+
+        return ResponseEntity.ok(new AuthResponseWithTokens(
+                accessToken,
+                refreshToken.getToken(),
+                user.getEmail(),
+                user.getFullName()
+        ));
     }
 
-    @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(@RequestHeader("Authorization") String authHeader) {
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@RequestBody RefreshTokenRequest request) {
         try {
-            if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                return ResponseEntity.status(401).body("Токен не предоставлен");
-            }
-            String token = authHeader.substring(7);
-            String email = jwtUtils.extractEmail(token);
-            User user = userService.findByEmail(email);
-
-            return ResponseEntity.ok("Привет, " + user.getFullName() + "! Твой email: " + user.getEmail());
-
+            RefreshToken refreshToken = refreshTokenService.validateRefreshToken(request.getRefreshToken());
+            User user = refreshToken.getUser();
+            String newAccessToken = jwtUtils.generateAccessToken(user.getEmail());
+            return ResponseEntity.ok(new AccessTokenResponse(newAccessToken));
         } catch (Exception e) {
-            return ResponseEntity.status(401).body("Неверный или просроченный токен");
+            return ResponseEntity.status(401).body("Ошибка: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestBody LogoutRequest request) {
+        try {
+            RefreshToken refreshToken = refreshTokenService.findByToken(request.getRefreshToken());
+            refreshToken.setRevoked(true);
+            refreshTokenService.save(refreshToken);
+
+            return ResponseEntity.ok("Выход выполнен. Refresh Token отозван.");
+        } catch (Exception e) {
+            return ResponseEntity.status(400).body("Ошибка: " + e.getMessage());
         }
     }
 }
