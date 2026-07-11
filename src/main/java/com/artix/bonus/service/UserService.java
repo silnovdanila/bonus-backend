@@ -71,4 +71,22 @@ public class UserService {
 
         return userRepository.save(user);
     }
+
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = findById(userId);
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new RuntimeException("Неверный текущий пароль");
+        }
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.save(user);
+    }
+
+    public void deleteAccount(Long userId, String password) {
+        User user = findById(userId);
+        if (!passwordEncoder.matches(password, user.getPassword())) {
+            throw new RuntimeException("Неверный пароль");
+        }
+        userRepository.delete(user);
+    }
 }
