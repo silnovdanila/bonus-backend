@@ -1,7 +1,7 @@
 package com.artix.bonus.service;
 
-import com.artix.bonus.dto.BonusTransactionResponse;
 import com.artix.bonus.dto.BonusTransactionDetailResponse;
+import com.artix.bonus.dto.BonusTransactionResponse;
 import com.artix.bonus.model.BonusTransaction;
 import com.artix.bonus.model.User;
 import com.artix.bonus.repository.BonusTransactionRepository;
@@ -12,10 +12,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -30,10 +29,60 @@ public class BonusService {
         return bonusTransactionRepository.calculateBalance(userId);
     }
 
-    public Page<BonusTransactionResponse> getTransactionHistory(Long userId, int page, int size) {
+    public String getLastUpdated(Long userId) {
+        User user = userService.findById(userId);
+        Pageable pageable = PageRequest.of(0, 1, Sort.by("createdAt").descending());
+        Page<BonusTransaction> lastTransaction = bonusTransactionRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+
+        if (lastTransaction.hasContent()) {
+            return lastTransaction.getContent().get(0).getCreatedAt().format(FORMATTER);
+        }
+        return user.getCreatedAt().format(FORMATTER);
+    }
+
+    public Page<BonusTransactionResponse> getTransactionHistory(
+            Long userId,
+            int page,
+            int size,
+            String type,
+            String dateFrom,
+            String dateTo) {
+
         User user = userService.findById(userId);
         Pageable pageable = PageRequest.of(page, size, Sort.by("createdAt").descending());
-        Page<BonusTransaction> transactionPage = bonusTransactionRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+
+        LocalDateTime from = null;
+        LocalDateTime to = null;
+
+        if (dateFrom != null && !dateFrom.isEmpty()) {
+            from = LocalDate.parse(dateFrom).atStartOfDay();
+        }
+        if (dateTo != null && !dateTo.isEmpty()) {
+            to = LocalDate.parse(dateTo).atTime(23, 59, 59);
+        }
+
+        boolean hasType = type != null && !type.isEmpty() && !type.equals("ALL");
+        boolean hasDateFrom = from != null;
+        boolean hasDateTo = to != null;
+
+        Page<BonusTransaction> transactionPage;
+
+        if (hasType && hasDateFrom && hasDateTo) {
+            transactionPage = bonusTransactionRepository
+                    .findByUserAndTransactionTypeAndCreatedAtBetweenOrderByCreatedAtDesc(
+                            user, type, from, to, pageable
+                    );
+        } else if (hasType) {
+            transactionPage = bonusTransactionRepository
+                    .findByUserAndTransactionTypeOrderByCreatedAtDesc(user, type, pageable);
+        } else if (hasDateFrom && hasDateTo) {
+            transactionPage = bonusTransactionRepository
+                    .findByUserAndCreatedAtBetweenOrderByCreatedAtDesc(user, from, to, pageable);
+        } else {
+            transactionPage = bonusTransactionRepository
+                    .findByUserOrderByCreatedAtDesc(user, pageable);
+        }
+
         return transactionPage.map(this::mapToResponse);
     }
 
@@ -41,7 +90,6 @@ public class BonusService {
         User user = userService.findById(userId);
         BonusTransaction transaction = bonusTransactionRepository.findByIdAndUser(transactionId, user)
                 .orElseThrow(() -> new RuntimeException("Транзакция не найдена"));
-
         return mapToDetailResponse(transaction);
     }
 
@@ -81,17 +129,5 @@ public class BonusService {
                 transaction.getUser().getFullName(),
                 transaction.getRelatedPurchaseId()
         );
-    }
-
-    public String getLastUpdated(Long userId) {
-        User user = userService.findById(userId);
-        Pageable pageable = PageRequest.of(0, 1, Sort.by("createdAt").descending());
-        Page<BonusTransaction> lastTransaction = bonusTransactionRepository.findByUserOrderByCreatedAtDesc(user, pageable);
-
-        if (lastTransaction.hasContent()) {
-            return lastTransaction.getContent().get(0).getCreatedAt().format(FORMATTER);
-        }
-
-        return user.getCreatedAt().format(FORMATTER);
     }
 }

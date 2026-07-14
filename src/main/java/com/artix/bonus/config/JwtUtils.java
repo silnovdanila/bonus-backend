@@ -12,7 +12,7 @@ import java.util.Date;
 @Component
 public class JwtUtils {
 
-    private final String SECRET = "mySuperSecretKey9999999999";
+    private final String SECRET = "mySuperSecretKeyForArtixBonusProject2026With256BitsLength!!!";
 
     private final long ACCESS_EXPIRATION_MS = 900000;
 

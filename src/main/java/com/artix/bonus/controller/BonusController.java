@@ -58,7 +58,10 @@ public class BonusController {
     public ResponseEntity<?> getTransactions(
             @RequestHeader("Authorization") String authHeader,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String dateFrom,
+            @RequestParam(required = false) String dateTo) {
         try {
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 return ResponseEntity.status(401).body("Токен не предоставлен");
@@ -73,8 +76,9 @@ public class BonusController {
             String email = jwtUtils.extractEmail(token);
             User user = userService.findByEmail(email);
 
-            Page<BonusTransactionResponse> transactions = bonusService.getTransactionHistory(user.getId(), page, size);
-
+            Page<BonusTransactionResponse> transactions = bonusService.getTransactionHistory(
+                    user.getId(), page, size, type, dateFrom, dateTo
+            );
             PaginationResponse<BonusTransactionResponse> response = new PaginationResponse<>(
                     transactions.getContent(),
                     transactions.getNumber(),
