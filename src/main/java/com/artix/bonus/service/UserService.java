@@ -23,20 +23,21 @@ public class UserService {
     private final PasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     public User register(RegisterRequest request) {
-        Optional<User> existingUser = userRepository.findByEmail(request.getEmail());
-        if (existingUser.isPresent()) {
-            User user = existingUser.get();
-            if (!user.isDeleted()) {
-                throw new RuntimeException("Email уже зарегистрирован");
-            }
-            userRepository.delete(user);
+        Optional<User> existingByEmail = userRepository.findByEmail(request.getEmail());
+        if (existingByEmail.isPresent() && !existingByEmail.get().isDeleted()) {
+            throw new RuntimeException("Email уже зарегистрирован");
+        }
+
+        Optional<User> existingByPhone = userRepository.findByPhone(request.getPhone());
+        if (existingByPhone.isPresent() && !existingByPhone.get().isDeleted()) {
+            throw new RuntimeException("Телефон уже зарегистрирован");
         }
 
         User user = new User();
         user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFullName(request.getFullName());
-        user.setPhone(request.getPhone());
         user.setBirthDate(request.getBirthDate());
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
@@ -46,11 +47,23 @@ public class UserService {
     }
 
     public User login(LoginRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("Пользователь не найден"));
+        String login = request.getLogin();
+        User user = null;
 
-        if (user.isDeleted()) {
-            throw new RuntimeException("Аккаунт удалён");
+        boolean isEmail = login.contains("@");
+
+        if (isEmail) {
+            user = userRepository.findByEmail(login)
+                    .filter(u -> !u.isDeleted())
+                    .orElse(null);
+        } else {
+            user = userRepository.findByPhone(login)
+                    .filter(u -> !u.isDeleted())
+                    .orElse(null);
+        }
+
+        if (user == null) {
+            throw new RuntimeException("Пользователь не найден");
         }
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {

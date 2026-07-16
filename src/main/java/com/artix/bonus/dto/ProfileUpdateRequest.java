@@ -1,5 +1,6 @@
 package com.artix.bonus.dto;
 
+import jakarta.validation.constraints.Email;
 import lombok.Data;
 
 @Data

@@ -6,8 +6,10 @@ import com.artix.bonus.model.User;
 import com.artix.bonus.service.RefreshTokenService;
 import com.artix.bonus.service.UserService;
 import com.artix.bonus.config.JwtUtils;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,7 +22,10 @@ public class AuthController {
     private final JwtUtils jwtUtils;
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponseWithTokens> register(@RequestBody RegisterRequest request) {
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request, BindingResult result) {
+        if (result.hasErrors()) {
+            return ResponseEntity.badRequest().body(result.getAllErrors().get(0).getDefaultMessage());
+        }
         User user = userService.register(request);
 
         String accessToken = jwtUtils.generateAccessToken(user.getEmail());
@@ -35,7 +40,10 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponseWithTokens> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request, BindingResult result) {
+        if (result.hasErrors()) {
+            return ResponseEntity.badRequest().body(result.getAllErrors().get(0).getDefaultMessage());
+        }
         User user = userService.login(request);
 
         String accessToken = jwtUtils.generateAccessToken(user.getEmail());
